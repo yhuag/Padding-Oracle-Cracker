@@ -7,8 +7,11 @@ import array
 MAX_FINAL_I = 255
 
 # Print a string of pretty-styling byte array
-def printAsByte(label, s):
-	print label + " (" + str(len(s)) + ") ==> " + ':'.join(x.encode('hex') for x in str(s)) + "\n"
+def printAsByte(label, s, chunk_id = -1):
+	if(chunk_id != -1):
+		print label + "[" + str(chunk_id) + "]" + " (" + str(len(s)) + ") ==> " + ':'.join(x.encode('hex') for x in str(s)) + "\n"
+	else:
+		print label + " (" + str(len(s)) + ") ==> " + ':'.join(x.encode('hex') for x in str(s)) + "\n"
 
 # Print a formatted message given label and content
 def printAsMessage(label, s):
@@ -43,14 +46,15 @@ def xor_strings(xs, ys):
     return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(xs, ys))
 
 
-def getFinalI(r, k):
+def getFinalI(r, k, yN_id = 2):
 	### [Step 1]: Generate random block r = (r1|r2|...|r15|i) ###
 	i_of_r = 0	# Init i of r to be 0
 	byte_k_th = k - 1
 	r = r[:byte_k_th] + intToHex(i_of_r) + r[byte_k_th+1:]
 
 	### [Step 2]: Ask the oracle if r_yN is valid ###
-	yN = ciphertext[ciphertext_length - 16:]	# Get (r|yN)
+	yN = cipher_yN[yN_id]
+	#yN = ciphertext[ciphertext_length - 16:]	# Get (r|yN)
 	r_yN = r + yN
 	oracle_validation = isValidatedByOracle(r_yN, False)	# Validate (r|yN) by oracle
 
@@ -63,55 +67,37 @@ def getFinalI(r, k):
 
 	return (i_of_r, r_yN)
 
+# Yield successive n-sized chunks from l
+def chunks(l, n):
+	result = []
+	for j in xrange(0, len(l), n):
+		result.append(l[j:j + n])
+	return result
 
 
 ### Load byte from ciphertext
-ciphertext_file = open("ciphertext", "rb")
-ciphertext = ciphertext_file.read()
-ciphertext_file.close()
-ciphertext_length = len(ciphertext)
+file = open("ciphertext", "rb")
+ciphertext = file.read()
+file.close()
+cipher_len = len(ciphertext)
 printAsByte("ciphertext", ciphertext)
 
+# Chop the ciphertext into chunks of 16-bytes
+# cipher_yN[0] is the first chunk, might be the IV
+cipher_yN = chunks(ciphertext, 16)
+
+# Print out the ciphertext chunks
+for j in range(len(cipher_yN)):
+	printAsByte("cipher_yN", cipher_yN[j], j)
+
+# Get the last chunk
+r_yN = cipher_yN[2]
 
 
 ######################### Decypt Byte #########################
 r = generateRandomBytes(15) + intToHex(0)
 k = 16
 (i_of_r, r_yN) = getFinalI(r, k)
-'''
-
-### [Step 1]: Generate random block r = (r1|r2|...|r15|i) ###
-# Init i of r to be 0
-i_of_r = 0
-# Init r
-r = generateRandomBytes(15) + intToHex(i_of_r)
-printAsByte("r", r)
-
-
-### [Step 2]: Ask the oracle if r_yN is valid ###
-# Get (r|yN)
-yN = ciphertext[ciphertext_length - 16:]
-r_yN = r + yN
-printAsByte("r_yN", r_yN)
-# Validate (r|yN) by oracle
-oracle_validation = isValidatedByOracle(r_yN, False)
-
-
-### [Step 3]: Increment i and keep on validation ###
-# If validation is false(0), increment i_of_r by 1, and validate again
-# Until the validation is True(1), or i_of_r exceeds 255(ERROR)
-while ((oracle_validation) == 0) and (i_of_r < 255):
-	# Update i
-	i_of_r += 1
-	# Re-construct r
-	r = r[:15] + intToHex(i_of_r)
-	# Re-construct r_yN
-	r_yN = r + yN
-	# Validate again
-	oracle_validation = isValidatedByOracle(r_yN, False)
-# ==> Validation process finish. Get the correct i_of_r
-
-'''
 
 ### [Step 4]: Replace each byte and check validation ###
 # Replace r1 with any other byte
@@ -146,7 +132,7 @@ printAsMessage("rK_to_replace", k)
 D_yN_16 = i_of_r ^ (17 - k)
 
 ### [Step 7]: Generate the final byte of xN(the plain text) ###
-x_N_16 = D_yN_16 ^ b_to_num_single(ciphertext[ciphertext_length - 17])
+x_N_16 = D_yN_16 ^ b_to_num_single(ciphertext[cipher_len - 17])
 printAsMessage("x_N_16", x_N_16)
 printAsMessage("End of Decrypt Byte", "=========================")
 
@@ -160,57 +146,13 @@ printAsMessage("Decrypt Block", "=========================")
 
 ### To find x_N_15, ..., x_N_1
 
-D_yN = ciphertext[ciphertext_length - 16:]
-printAsByte("D_yN", D_yN)
-D_yN_1_k = ciphertext[ciphertext_length - 32: ciphertext_length - 16]
-printAsByte("D_yN_1_k", D_yN_1_k)
-
-# Start from r15
-k_th = 15
-# byte_k_th starts from 14 (0...15)
-byte_k_th = k_th - 1
 
 
 
 
 k = 15
-r = r[:k-1] + intToHex(0) + intToHex(D_yN_16 ^ (17 - k_th))
+r = r[:k-1] + intToHex(0) + intToHex(D_yN_16 ^ (17 - k))
 (i_of_r, r_yN) = getFinalI(r, k)
-
-
-
-'''
-
-# Init i = 0
-i_of_r = 0
-
-# r = r1...r14 + i(0), length = 15
-r = r[:byte_k_th] + intToHex(i_of_r)
-printAsByte("r", r)
-
-# Concantenate the following D_y_k+1 ... D_y_16
-new_byte = intToHex(D_yN_16 ^ (17 - k_th))
-printAsByte("new_byte", new_byte)
-r = r + new_byte
-printAsByte("r", r)
-
-r_y = r + D_yN
-
-oracle_validation = isValidatedByOracle(r_y, False)
-
-# If validation is false(0), increment i_of_r by 1, and validate again
-# Until the validation is True(1), or i_of_r exceeds 255(ERROR)
-while ((oracle_validation) == 0) and (i_of_r < 255):
-	# Update i
-	i_of_r += 1
-	# Re-construct r, the 
-	r = r[:byte_k_th] + intToHex(i_of_r) + r[byte_k_th+1:]
-	# Re-construct r_yN
-	r_y = r + D_yN
-	# Validate again
-	oracle_validation = isValidatedByOracle(r_y, False)
-
-'''
 
 
 # Validation process finish. Get the correct i_of_r
@@ -219,10 +161,10 @@ printAsMessage("r_15 Oracle Validation", "=========================")
 
 printAsMessage("i_of_r", i_of_r)
 
-D_yN_15 = i_of_r ^ (17 - k_th)
+D_yN_15 = i_of_r ^ (17 - k)
 printAsByte("D_yN_15", intToHex(D_yN_15))
 
-x_N_15 = D_yN_15 ^ b_to_num_single(D_yN_1_k[14])
+x_N_15 = D_yN_15 ^ b_to_num_single(cipher_yN[1][14])
 printAsMessage("x_N_15", x_N_15)
 
 
