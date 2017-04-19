@@ -93,8 +93,16 @@ for j in range(len(cipher_yN)):
 # Get the last chunk
 r_yN = cipher_yN[2]
 
+# Create current D_yN_1 ... D_yN_16
+D_yN = bytearray(16)
+# Create current x_N_1 ... x_N_16
+x_N = bytearray(16)
+
+
 
 ######################### Decypt Byte #########################
+printAsMessage("Decrypt Byte", "=========================")
+
 r = generateRandomBytes(15) + intToHex(0)
 k = 16
 (i_of_r, r_yN) = getFinalI(r, k)
@@ -107,7 +115,7 @@ k = byte_to_replace + 1
 # re-construct r_yN
 new_r_yN = generateRandomBytes(1) + r_yN[1:]
 # validatation
-oracle_validation = isValidatedByOracle(new_r_yN)
+oracle_validation = isValidatedByOracle(new_r_yN, False)
 # Keep on replacing r_yN's each byte with any other random bytes
 # and check the validation. Stop only until r_15(not i) are replaced
 # Or any validation is failed(0)
@@ -118,23 +126,20 @@ while (oracle_validation == 1) and (k < 15):
 	# Re-construct the r_yN_new with the specific byte replaced
 	new_r_yN = new_r_yN[:byte_to_replace] + generateRandomBytes(1) + new_r_yN[byte_to_replace + 1:]
 	oracle_validation = isValidatedByOracle(new_r_yN, False)
-	#printAsMessage("rK_to_replace", k)
-	#printAsMessage("Oracle Validation", oracle_validation)
-	#printAsByte("new_r_yN", new_r_yN)
+
 # Still need to move to next
 byte_to_replace += 1
 k = byte_to_replace + 1
-printAsByte("new_r_yN", new_r_yN)
-printAsMessage("rK_to_replace", k)
 
 ### [Step 5] & [Step 6] ###
 # Check if the r_yN kept on replacing until the very end
-D_yN_16 = i_of_r ^ (17 - k)
+D_yN[15] = i_of_r ^ (17 - k)
+printAsByte("D_yN[15]", intToHex(D_yN[15]))
 
 ### [Step 7]: Generate the final byte of xN(the plain text) ###
-x_N_16 = D_yN_16 ^ b_to_num_single(ciphertext[cipher_len - 17])
-printAsMessage("x_N_16", x_N_16)
-printAsMessage("End of Decrypt Byte", "=========================")
+x_N[15] = D_yN[15] ^ b_to_num_single(ciphertext[cipher_len - 17])
+printAsMessage("x_N[15]", x_N[15])
+
 
 
 
@@ -144,28 +149,15 @@ printAsMessage("End of Decrypt Byte", "=========================")
 printAsMessage("Decrypt Block", "=========================")
 
 
-### To find x_N_15, ..., x_N_1
-
-
-
-
-
 k = 15
-r = r[:k-1] + intToHex(0) + intToHex(D_yN_16 ^ (17 - k))
+r = r[:k-1] + intToHex(0) + intToHex(D_yN[15] ^ (17 - k))
 (i_of_r, r_yN) = getFinalI(r, k)
 
+D_yN[14] = i_of_r ^ (17 - k)
+printAsByte("D_yN[14]", intToHex(D_yN[14]))
 
-# Validation process finish. Get the correct i_of_r
-printAsByte("Validated", r_yN)
-printAsMessage("r_15 Oracle Validation", "=========================")
-
-printAsMessage("i_of_r", i_of_r)
-
-D_yN_15 = i_of_r ^ (17 - k)
-printAsByte("D_yN_15", intToHex(D_yN_15))
-
-x_N_15 = D_yN_15 ^ b_to_num_single(cipher_yN[1][14])
-printAsMessage("x_N_15", x_N_15)
+x_N[14] = D_yN[14] ^ b_to_num_single(cipher_yN[1][14])
+printAsMessage("x_N[14]", x_N[14])
 
 
 
