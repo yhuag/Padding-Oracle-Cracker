@@ -1,9 +1,8 @@
 ### Dependencies
 import os
 import subprocess
-import array
 
-# Initialization
+### Initialization
 MAX_FINAL_I = 255
 
 # Print a string of pretty-styling byte array
@@ -38,14 +37,11 @@ def isValidatedByOracle(r_yN_array, toPrint = True):
 		printAsMessage("Oracle Validation", oracle_validation)
 	return int(oracle_validation)
 
-#converts bytes to nums
+# Converts bytes to nums
 def b_to_num_single(_byte):
     return int(_byte.encode('hex'), 16)
 
-def xor_strings(xs, ys):
-    return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(xs, ys))
-
-
+# Get the i and r, given rK's k and block_id: Step 1 to Step 3
 def getFinalI(r, k, yN_id = 2):
 	### [Step 1]: Generate random block r = (r1|r2|...|r15|i) ###
 	i_of_r = 0	# Init i of r to be 0
@@ -54,8 +50,7 @@ def getFinalI(r, k, yN_id = 2):
 
 	### [Step 2]: Ask the oracle if r_yN is valid ###
 	yN = cipher_y[yN_id]
-	#yN = ciphertext[ciphertext_length - 16:]	# Get (r|yN)
-	r_yN = r + yN
+	r_yN = r + yN 											# Get (r|yN)
 	oracle_validation = isValidatedByOracle(r_yN, False)	# Validate (r|yN) by oracle
 
 	### [Step 3]: Increment i and keep on validation ###
@@ -67,12 +62,16 @@ def getFinalI(r, k, yN_id = 2):
 
 	return (i_of_r, r_yN)
 
-# Yield successive n-sized chunks from l
+# Return successive n-sized chunks from l
 def chunks(l, n):
 	result = []
 	for j in xrange(0, len(l), n):
 		result.append(l[j:j + n])
 	return result
+
+# Convert array to string for printing
+def arrayToString(arr):
+	return "".join(chr(x) for x in arr)
 
 
 ### Load byte from ciphertext
@@ -95,184 +94,93 @@ for j in range(cipher_y_len):
 x_all = bytearray(cipher_len - 16)
 
 
+# Iteratively go through all the blocks
+# If length is 5, start from ID4 to ID1, not ID0(IV)
+for block_id in range(cipher_y_len - 1, 0, -1):
 
+	######################### Decypt Byte #########################
+	printAsMessage("Decrypt Byte", "=========================")
 
-######################### Decypt Byte #########################
-printAsMessage("Decrypt Byte", "=========================")
+	printAsMessage("Block ID", block_id)
 
-# The last block
-block_rev_id = 0
-block_id = cipher_y_len - block_rev_id - 1
-print block_rev_id, block_id
+	# Get the last chunk
+	r_yN = cipher_y[block_id]
+	# Create current D_yN_1 ... D_yN_16
+	D_yN = bytearray(16)
+	# Create current x_N_1 ... x_N_16
+	x_N = bytearray(16)
 
-# Get the last chunk
-r_yN = cipher_y[block_id]
-# Create current D_yN_1 ... D_yN_16
-D_yN = bytearray(16)
-# Create current x_N_1 ... x_N_16
-x_N = bytearray(16)
-
-r = generateRandomBytes(15) + intToHex(0)
-k = 16
-(i_of_r, r_yN) = getFinalI(r, k, block_id)
-
-### [Step 4]: Replace each byte and check validation ###
-# Replace r1 with any other byte
-# Start from 0-th
-byte_to_replace = 0
-k = byte_to_replace + 1
-# re-construct r_yN
-new_r_yN = generateRandomBytes(1) + r_yN[1:]
-# validatation
-oracle_validation = isValidatedByOracle(new_r_yN, False)
-# Keep on replacing r_yN's each byte with any other random bytes
-# and check the validation. Stop only until r_15(not i) are replaced
-# Or any validation is failed(0)
-while (oracle_validation == 1) and (k < 15):
-	# Ready to replace the next byte
-	byte_to_replace += 1
-	k = byte_to_replace + 1
-	# Re-construct the r_yN_new with the specific byte replaced
-	new_r_yN = new_r_yN[:byte_to_replace] + generateRandomBytes(1) + new_r_yN[byte_to_replace + 1:]
-	oracle_validation = isValidatedByOracle(new_r_yN, False)
-
-# Still need to move to next
-byte_to_replace += 1
-k = byte_to_replace + 1
-
-### [Step 5] & [Step 6]: Check if the r_yN kept on replacing until the very end ###
-D_yN[15] = i_of_r ^ (17 - k)
-printAsByte("D_yN[15]", intToHex(D_yN[15]))
-
-### [Step 7]: Generate the final byte of xN(the plain text) ###
-x_N[15] = D_yN[15] ^ b_to_num_single(cipher_y[block_id-1][15])
-printAsMessage("x_N[15]", x_N[15])
-
-
-
-
-
-
-#################### Decypt Block #################### 52 sec ###
-printAsMessage("Decrypt Block", "=========================")
-
-
-for k in range(15,0,-1):
-	# k = j (th)
-	r = r[:k-1] + intToHex(0)
-	for m in range(k, 16):
-		r = r + intToHex(D_yN[m] ^ (17 - k))
-	# Get the correct i_of_r and r_yN
+	r = generateRandomBytes(15) + intToHex(0)
+	k = 16
 	(i_of_r, r_yN) = getFinalI(r, k, block_id)
 
-	D_yN[k-1] = i_of_r ^ (17 - k)
-	printAsByte("D_yN", intToHex(D_yN[k-1]), k-1)
+	### [Step 4]: Replace each byte and check validation ###
+	# Replace r1 with any other byte
+	# Start from 0-th
+	byte_to_replace = 0
+	k = byte_to_replace + 1
+	# re-construct r_yN
+	new_r_yN = generateRandomBytes(1) + r_yN[1:]
+	# validatation
+	oracle_validation = isValidatedByOracle(new_r_yN, False)
+	# Keep on replacing r_yN's each byte with any other random bytes
+	# and check the validation. Stop only until r_15(not i) are replaced
+	# Or any validation is failed(0)
+	while (oracle_validation == 1) and (k < 15):
+		# Ready to replace the next byte
+		byte_to_replace += 1
+		k = byte_to_replace + 1
+		# Re-construct the r_yN_new with the specific byte replaced
+		new_r_yN = new_r_yN[:byte_to_replace] + generateRandomBytes(1) + new_r_yN[byte_to_replace + 1:]
+		oracle_validation = isValidatedByOracle(new_r_yN, False)
 
-	x_N[k-1] = D_yN[k-1] ^ b_to_num_single(cipher_y[block_id-1][k-1])
+	# Still need to move to next
+	byte_to_replace += 1
+	k = byte_to_replace + 1
 
-	print "x_N[" + str(k-1) + "]" + str(x_N[k-1]) + " --> \'" + str(chr(x_N[k-1]) + "\'")
-	print "-------------------------\n"
+	### [Step 5] & [Step 6]: Check if the r_yN kept on replacing until the very end ###
+	D_yN[15] = i_of_r ^ (17 - k)
+	printAsByte("D_yN[15]", intToHex(D_yN[15]))
 
-# Print out the plain text of the final block
-print "Final Block Text!!!"
-for j in range(len(x_N)):
-	print chr(x_N[j])
-
-
+	### [Step 7]: Generate the final byte of xN(the plain text) ###
+	x_N[15] = D_yN[15] ^ b_to_num_single(cipher_y[block_id-1][15])
+	printAsMessage("x_N[15]", x_N[15])
 
 
+	#################### Decypt Block #################### ~52 sec ###
+	printAsMessage("Decrypt Block", "=========================")
+
+	# Iteratively go through all the bytes
+	for k in range(15,0,-1):
+		# k = j (th)
+		r = r[:k-1] + intToHex(0)
+		for m in range(k, 16):
+			r = r + intToHex(D_yN[m] ^ (17 - k))
+		# Get the correct i_of_r and r_yN
+		(i_of_r, r_yN) = getFinalI(r, k, block_id)
+
+		D_yN[k-1] = i_of_r ^ (17 - k)
+		printAsByte("D_yN", intToHex(D_yN[k-1]), k-1)
+
+		x_N[k-1] = D_yN[k-1] ^ b_to_num_single(cipher_y[block_id-1][k-1])
+
+		print "x_N[" + str(k-1) + "]" + str(x_N[k-1]) + " --> \'" + str(chr(x_N[k-1]) + "\'")
+		print "-------------------------\n"
+
+	# Print out the plain text of the block
+	print "Block " + str(block_id) + " Text: " + arrayToString(x_N)
+
+	# Add all block texts to collector
+	for j in range(len(x_N)):
+		x_all[(block_id-1) * 16 + j] = chr(x_N[j])
 
 
 #################### Decypt ####################
 printAsMessage("Decrypt All", "=========================")
 
-
-
-
-######################### Decypt Byte #########################
-printAsMessage("Decrypt Byte", "=========================")
-
-# The second-last block
-block_rev_id = 1
-block_id = cipher_y_len - block_rev_id - 1
-print block_rev_id, block_id
-
-# Get the last chunk
-r_yN = cipher_y[block_id]
-#printAsByte("cipher_y[]")
-
-# Create current D_yN_1 ... D_yN_16
-D_yN = bytearray(16)
-# Create current x_N_1 ... x_N_16
-x_N = bytearray(16)
-
-r = generateRandomBytes(15) + intToHex(0)
-k = 16
-(i_of_r, r_yN) = getFinalI(r, k, block_id)
-
-### [Step 4]: Replace each byte and check validation ###
-# Replace r1 with any other byte
-# Start from 0-th
-byte_to_replace = 0
-k = byte_to_replace + 1
-# re-construct r_yN
-new_r_yN = generateRandomBytes(1) + r_yN[1:]
-# validatation
-oracle_validation = isValidatedByOracle(new_r_yN, False)
-# Keep on replacing r_yN's each byte with any other random bytes
-# and check the validation. Stop only until r_15(not i) are replaced
-# Or any validation is failed(0)
-while (oracle_validation == 1) and (k < 15):
-	# Ready to replace the next byte
-	byte_to_replace += 1
-	k = byte_to_replace + 1
-	# Re-construct the r_yN_new with the specific byte replaced
-	new_r_yN = new_r_yN[:byte_to_replace] + generateRandomBytes(1) + new_r_yN[byte_to_replace + 1:]
-	oracle_validation = isValidatedByOracle(new_r_yN, False)
-
-# Still need to move to next
-byte_to_replace += 1
-k = byte_to_replace + 1
-
-### [Step 5] & [Step 6]: Check if the r_yN kept on replacing until the very end ###
-D_yN[15] = i_of_r ^ (17 - k)
-printAsByte("D_yN[15]", intToHex(D_yN[15]))
-
-### [Step 7]: Generate the final byte of xN(the plain text) ###
-x_N[15] = D_yN[15] ^ b_to_num_single(cipher_y[block_id-1][15])
-printAsMessage("x_N[15]", x_N[15])
-
-
-
-
-
-
-#################### Decypt Block #################### 52 sec ###
-printAsMessage("Decrypt Block", "=========================")
-
-
-for k in range(15,0,-1):
-	# k = j (th)
-	r = r[:k-1] + intToHex(0)
-	for m in range(k, 16):
-		r = r + intToHex(D_yN[m] ^ (17 - k))
-	# Get the correct i_of_r and r_yN
-	(i_of_r, r_yN) = getFinalI(r, k, block_id)
-
-	D_yN[k-1] = i_of_r ^ (17 - k)
-	printAsByte("D_yN", intToHex(D_yN[k-1]), k-1)
-
-	x_N[k-1] = D_yN[k-1] ^ b_to_num_single(cipher_y[block_id-1][k-1])
-
-	print "x_N[" + str(k-1) + "]" + str(x_N[k-1]) + " --> \'" + str(chr(x_N[k-1]) + "\'")
-	print "-------------------------\n"
-
-# Print out the plain text of the final block
-print "Final Block Text!!!"
-for j in range(len(x_N)):
-	print chr(x_N[j])
-
-
+# Print out the entire plain text
+final_answer = arrayToString(x_all)
+printAsMessage("Final Answer", final_answer)
 
 
 
