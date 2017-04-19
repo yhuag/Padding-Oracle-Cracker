@@ -149,18 +149,31 @@ printAsMessage("x_N[15]", x_N[15])
 printAsMessage("Decrypt Block", "=========================")
 
 
-k = 15
-r = r[:k-1] + intToHex(0) + intToHex(D_yN[15] ^ (17 - k))
-(i_of_r, r_yN) = getFinalI(r, k)
+for j in range(15,0,-1):
+	# k = j (th)
+	k = j
+	r = r[:k-1] + intToHex(0)
+	for m in range(j, 16):
+		r = r + intToHex(D_yN[m] ^ (17 - k))
+	#r = r[:k-1] + intToHex(0) + intToHex(D_yN[14] ^ (17 - k)) + intToHex(D_yN[15] ^ (17 - k))
+	(i_of_r, r_yN) = getFinalI(r, k)
 
-D_yN[14] = i_of_r ^ (17 - k)
-printAsByte("D_yN[14]", intToHex(D_yN[14]))
+	D_yN[k-1] = i_of_r ^ (17 - k)
+	printAsByte("D_yN", intToHex(D_yN[k-1]), k-1)
+	#print "D_yN[" + str(k-1) + "]" + str(intToHex(D_yN[k-1]))
 
-x_N[14] = D_yN[14] ^ b_to_num_single(cipher_yN[1][14])
-printAsMessage("x_N[14]", x_N[14])
+	x_N[k-1] = D_yN[k-1] ^ b_to_num_single(cipher_yN[1][k-1])
+	#printAsMessage("x_N[13]", x_N[k-1])
+	print "x_N[" + str(k-1) + "]" + str(x_N[k-1])
 
+	#printAsMessage("x_N[13]", chr(x_N[k-1]))
+	print "x_N[" + str(k-1) + "]" + str(chr(x_N[k-1]))
 
+	print "-------------------------\n"
 
+print "Final Block Text!!!"
 
+for j in range(len(x_N)):
+	print chr(x_N[j])
 
 
