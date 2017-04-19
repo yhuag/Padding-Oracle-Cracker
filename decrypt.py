@@ -175,13 +175,12 @@ for block_id in range(cipher_y_len - 1, 0, -1):
 		x_all[(block_id-1) * 16 + j] = chr(x_N[j])
 
 
-#################### Decypt ####################
+#################### Decypt #################### ~77 sec for two blocks ###
 printAsMessage("Decrypt All", "=========================")
 
 # Print out the entire plain text
 final_answer = arrayToString(x_all)
-printAsMessage("Final Answer", final_answer)
-
-
+print "Final Answer:"
+print final_answer
 
 
