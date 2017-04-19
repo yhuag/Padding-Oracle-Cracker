@@ -53,7 +53,7 @@ def getFinalI(r, k, yN_id = 2):
 	r = r[:byte_k_th] + intToHex(i_of_r) + r[byte_k_th+1:]
 
 	### [Step 2]: Ask the oracle if r_yN is valid ###
-	yN = cipher_yN[yN_id]
+	yN = cipher_y[yN_id]
 	#yN = ciphertext[ciphertext_length - 16:]	# Get (r|yN)
 	r_yN = r + yN
 	oracle_validation = isValidatedByOracle(r_yN, False)	# Validate (r|yN) by oracle
@@ -83,29 +83,38 @@ cipher_len = len(ciphertext)
 printAsByte("ciphertext", ciphertext)
 
 # Chop the ciphertext into chunks of 16-bytes
-# cipher_yN[0] is the first chunk, might be the IV
-cipher_yN = chunks(ciphertext, 16)
+# cipher_y[0] is the first chunk, might be the IV
+cipher_y = chunks(ciphertext, 16)
+cipher_y_len = len(cipher_y)
 
 # Print out the ciphertext chunks
-for j in range(len(cipher_yN)):
-	printAsByte("cipher_yN", cipher_yN[j], j)
+for j in range(cipher_y_len):
+	printAsByte("cipher_y", cipher_y[j], j)
 
-# Get the last chunk
-r_yN = cipher_yN[2]
+# The entire plain text, without the IV
+x_all = bytearray(cipher_len - 16)
 
-# Create current D_yN_1 ... D_yN_16
-D_yN = bytearray(16)
-# Create current x_N_1 ... x_N_16
-x_N = bytearray(16)
 
 
 
 ######################### Decypt Byte #########################
 printAsMessage("Decrypt Byte", "=========================")
 
+# The last block
+block_rev_id = 0
+block_id = cipher_y_len - block_rev_id - 1
+print block_rev_id, block_id
+
+# Get the last chunk
+r_yN = cipher_y[block_id]
+# Create current D_yN_1 ... D_yN_16
+D_yN = bytearray(16)
+# Create current x_N_1 ... x_N_16
+x_N = bytearray(16)
+
 r = generateRandomBytes(15) + intToHex(0)
 k = 16
-(i_of_r, r_yN) = getFinalI(r, k)
+(i_of_r, r_yN) = getFinalI(r, k, block_id)
 
 ### [Step 4]: Replace each byte and check validation ###
 # Replace r1 with any other byte
@@ -131,13 +140,12 @@ while (oracle_validation == 1) and (k < 15):
 byte_to_replace += 1
 k = byte_to_replace + 1
 
-### [Step 5] & [Step 6] ###
-# Check if the r_yN kept on replacing until the very end
+### [Step 5] & [Step 6]: Check if the r_yN kept on replacing until the very end ###
 D_yN[15] = i_of_r ^ (17 - k)
 printAsByte("D_yN[15]", intToHex(D_yN[15]))
 
 ### [Step 7]: Generate the final byte of xN(the plain text) ###
-x_N[15] = D_yN[15] ^ b_to_num_single(ciphertext[cipher_len - 17])
+x_N[15] = D_yN[15] ^ b_to_num_single(cipher_y[block_id-1][15])
 printAsMessage("x_N[15]", x_N[15])
 
 
@@ -145,35 +153,127 @@ printAsMessage("x_N[15]", x_N[15])
 
 
 
-#################### Decypt Block ####################
+#################### Decypt Block #################### 52 sec ###
 printAsMessage("Decrypt Block", "=========================")
 
 
-for j in range(15,0,-1):
+for k in range(15,0,-1):
 	# k = j (th)
-	k = j
 	r = r[:k-1] + intToHex(0)
-	for m in range(j, 16):
+	for m in range(k, 16):
 		r = r + intToHex(D_yN[m] ^ (17 - k))
-	#r = r[:k-1] + intToHex(0) + intToHex(D_yN[14] ^ (17 - k)) + intToHex(D_yN[15] ^ (17 - k))
-	(i_of_r, r_yN) = getFinalI(r, k)
+	# Get the correct i_of_r and r_yN
+	(i_of_r, r_yN) = getFinalI(r, k, block_id)
 
 	D_yN[k-1] = i_of_r ^ (17 - k)
 	printAsByte("D_yN", intToHex(D_yN[k-1]), k-1)
-	#print "D_yN[" + str(k-1) + "]" + str(intToHex(D_yN[k-1]))
 
-	x_N[k-1] = D_yN[k-1] ^ b_to_num_single(cipher_yN[1][k-1])
-	#printAsMessage("x_N[13]", x_N[k-1])
-	print "x_N[" + str(k-1) + "]" + str(x_N[k-1])
+	x_N[k-1] = D_yN[k-1] ^ b_to_num_single(cipher_y[block_id-1][k-1])
 
-	#printAsMessage("x_N[13]", chr(x_N[k-1]))
-	print "x_N[" + str(k-1) + "]" + str(chr(x_N[k-1]))
-
+	print "x_N[" + str(k-1) + "]" + str(x_N[k-1]) + " --> \'" + str(chr(x_N[k-1]) + "\'")
 	print "-------------------------\n"
 
+# Print out the plain text of the final block
 print "Final Block Text!!!"
-
 for j in range(len(x_N)):
 	print chr(x_N[j])
+
+
+
+
+
+
+#################### Decypt ####################
+printAsMessage("Decrypt All", "=========================")
+
+
+
+
+######################### Decypt Byte #########################
+printAsMessage("Decrypt Byte", "=========================")
+
+# The second-last block
+block_rev_id = 1
+block_id = cipher_y_len - block_rev_id - 1
+print block_rev_id, block_id
+
+# Get the last chunk
+r_yN = cipher_y[block_id]
+#printAsByte("cipher_y[]")
+
+# Create current D_yN_1 ... D_yN_16
+D_yN = bytearray(16)
+# Create current x_N_1 ... x_N_16
+x_N = bytearray(16)
+
+r = generateRandomBytes(15) + intToHex(0)
+k = 16
+(i_of_r, r_yN) = getFinalI(r, k, block_id)
+
+### [Step 4]: Replace each byte and check validation ###
+# Replace r1 with any other byte
+# Start from 0-th
+byte_to_replace = 0
+k = byte_to_replace + 1
+# re-construct r_yN
+new_r_yN = generateRandomBytes(1) + r_yN[1:]
+# validatation
+oracle_validation = isValidatedByOracle(new_r_yN, False)
+# Keep on replacing r_yN's each byte with any other random bytes
+# and check the validation. Stop only until r_15(not i) are replaced
+# Or any validation is failed(0)
+while (oracle_validation == 1) and (k < 15):
+	# Ready to replace the next byte
+	byte_to_replace += 1
+	k = byte_to_replace + 1
+	# Re-construct the r_yN_new with the specific byte replaced
+	new_r_yN = new_r_yN[:byte_to_replace] + generateRandomBytes(1) + new_r_yN[byte_to_replace + 1:]
+	oracle_validation = isValidatedByOracle(new_r_yN, False)
+
+# Still need to move to next
+byte_to_replace += 1
+k = byte_to_replace + 1
+
+### [Step 5] & [Step 6]: Check if the r_yN kept on replacing until the very end ###
+D_yN[15] = i_of_r ^ (17 - k)
+printAsByte("D_yN[15]", intToHex(D_yN[15]))
+
+### [Step 7]: Generate the final byte of xN(the plain text) ###
+x_N[15] = D_yN[15] ^ b_to_num_single(cipher_y[block_id-1][15])
+printAsMessage("x_N[15]", x_N[15])
+
+
+
+
+
+
+#################### Decypt Block #################### 52 sec ###
+printAsMessage("Decrypt Block", "=========================")
+
+
+for k in range(15,0,-1):
+	# k = j (th)
+	r = r[:k-1] + intToHex(0)
+	for m in range(k, 16):
+		r = r + intToHex(D_yN[m] ^ (17 - k))
+	# Get the correct i_of_r and r_yN
+	(i_of_r, r_yN) = getFinalI(r, k, block_id)
+
+	D_yN[k-1] = i_of_r ^ (17 - k)
+	printAsByte("D_yN", intToHex(D_yN[k-1]), k-1)
+
+	x_N[k-1] = D_yN[k-1] ^ b_to_num_single(cipher_y[block_id-1][k-1])
+
+	print "x_N[" + str(k-1) + "]" + str(x_N[k-1]) + " --> \'" + str(chr(x_N[k-1]) + "\'")
+	print "-------------------------\n"
+
+# Print out the plain text of the final block
+print "Final Block Text!!!"
+for j in range(len(x_N)):
+	print chr(x_N[j])
+
+
+
+
 
 
