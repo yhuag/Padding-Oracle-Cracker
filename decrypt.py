@@ -1,6 +1,7 @@
 ### Dependencies
 import os
 import subprocess
+import sys
 
 ### Initialization
 MAX_FINAL_I = 255
@@ -75,7 +76,8 @@ def arrayToString(arr):
 
 
 ### Load byte from ciphertext
-file = open("ciphertext", "rb")
+file_name = str(sys.argv[1])
+file = open(file_name, "rb")
 ciphertext = file.read()
 file.close()
 cipher_len = len(ciphertext)
